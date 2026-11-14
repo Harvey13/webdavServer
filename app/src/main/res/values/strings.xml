@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WebDAV Share</string>
+    <string name="start_server">Démarrer le serveur</string>
+    <string name="stop_server">Arrêter le serveur</string>
+    <string name="server_status">Statut du serveur: %1$s</string>
+    <string name="server_running">En cours d\'exécution</string>
+    <string name="server_stopped">Arrêté</string>
+    <string name="ip_address">Adresse IP: %1$s</string>
+    <string name="port">Port: %1$s</string>
+    <string name="webdav_url">URL WebDAV: %1$s</string>
+    <string name="shared_folder">Partage: %1$s</string>
+    <string name="permissions_required">Permissions requises pour le fonctionnement de l\'application</string>
+    <string name="request_permissions">Accorder les permissions</string>
+    <string name="notification_title">WebDAV Share est actif</string>
+    <string name="notification_text">Partage de fichiers WebDAV actif</string>
+    <string name="error_starting_server">Erreur lors du démarrage du serveur: %1$s</string>
+    <string name="windows_access_guide">Guide d\'accès Windows</string>
+    <string name="windows_guide">Pour accéder aux fichiers depuis Windows:\n1. Ouvrez l\'explorateur de fichiers\n2. Cliquez-droit sur \"Ce PC\"\n3. Sélectionnez \"Ajouter un emplacement réseau\"\n4. Saisissez l\'URL WebDAV affichée ci-dessus</string>
+</resources>

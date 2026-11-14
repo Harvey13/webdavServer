@@ -1,0 +1,78 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+}
+
+android {
+    compileSdkVersion 33
+    defaultConfig {
+        applicationId "com.webdavshare.android"
+        minSdkVersion 21
+        targetSdkVersion 33
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+    namespace 'com.webdavshare.android'
+    
+    configurations {
+        all {
+            exclude group: 'commons-logging', module: 'commons-logging'
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += '/META-INF/DEPENDENCIES'
+            excludes += '/META-INF/NOTICE'
+            excludes += '/META-INF/LICENSE'
+            excludes += '/META-INF/LICENSE.txt'
+            excludes += '/META-INF/NOTICE.txt'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.9.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.8.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    
+    // WebDAV server library
+    implementation 'com.github.thegrizzlylabs:sardine-android:0.8'
+    implementation 'org.apache.jackrabbit:jackrabbit-webdav:2.21.9'
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+    
+    // Network utilities
+    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+    
+    // Coroutines for background processing
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
+    
+    // AndroidX lifecycle components
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.0"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.6.0"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.6.0"
+    implementation "androidx.lifecycle:lifecycle-service:2.6.0"
+    
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
