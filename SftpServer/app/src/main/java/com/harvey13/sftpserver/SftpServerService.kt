@@ -16,6 +16,7 @@ import org.apache.sshd.server.SshServer
 import org.apache.sshd.server.auth.password.PasswordAuthenticator
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
 import java.io.IOException
+import java.nio.file.Files
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
