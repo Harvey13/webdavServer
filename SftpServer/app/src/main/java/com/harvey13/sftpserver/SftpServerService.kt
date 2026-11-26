@@ -37,13 +37,16 @@ class SftpServerService : Service() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, notification("Initialisation du serveur SFTP…"))
         if (!starting && sshServer == null) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(RUNNING_KEY, false).apply()
             getOrCreatePassword()
             starting = true
             thread(name = "SftpServerStart") {
                 try {
                     startServer()
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(RUNNING_KEY, true).apply()
                     updateNotification("SFTP actif sur le port 2222")
                 } catch (error: Exception) {
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(RUNNING_KEY, false).apply()
                     updateNotification("Erreur SFTP : ${error.message ?: "inconnue"}")
                     stopServer()
                 } finally {
@@ -88,6 +91,7 @@ class SftpServerService : Service() {
         } catch (_: Exception) {
         } finally {
             sshServer = null
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(RUNNING_KEY, false).apply()
         }
     }
 
@@ -137,6 +141,7 @@ class SftpServerService : Service() {
         const val PREFS = "sftp_server"
         const val PASSWORD_KEY = "password"
         const val FINGERPRINT_KEY = "host_fingerprint"
+        const val RUNNING_KEY = "running"
         const val PORT = 2222
         const val USERNAME = "backup"
         private const val CHANNEL_ID = "sftp_server"
