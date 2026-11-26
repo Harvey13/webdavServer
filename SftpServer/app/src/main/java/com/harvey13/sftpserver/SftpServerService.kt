@@ -13,23 +13,11 @@ import org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory
 import org.apache.sshd.common.keyprovider.SimpleGeneratorHostKeyProvider
 import org.apache.sshd.server.SshServer
 import org.apache.sshd.server.auth.password.PasswordAuthenticator
-import org.apache.sshd.sftp.server.SftpFileSystemAccessor
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
-import org.apache.sshd.sftp.server.SftpSubsystemProxy
-import org.apache.sshd.sftp.server.FileHandle
-import org.apache.sshd.sftp.server.DirectoryHandle
 import java.io.IOException
-import java.nio.channels.SeekableByteChannel
-import java.nio.file.Files
-import java.nio.file.LinkOption
-import java.nio.file.OpenOption
-import java.nio.file.Path
-import java.nio.file.StandardOpenOption
-import java.nio.file.attribute.FileAttribute
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
-import java.util.Set
 import kotlin.concurrent.thread
 
 class SftpServerService : Service() {
@@ -78,77 +66,7 @@ class SftpServerService : Service() {
             username == USERNAME && constantTimeEquals(password, supplied ?: "")
         }
 
-        val readOnlyAccessor = object : SftpFileSystemAccessor {
-            override fun resolveLocalFilePath(
-                subsystem: SftpSubsystemProxy,
-                rootDir: Path,
-                remotePath: String
-            ): Path {
-                val relative = remotePath.removePrefix("/")
-                val resolved = rootDir.resolve(relative).normalize()
-                if (!resolved.startsWith(rootDir.normalize())) throw IOException("Chemin hors du stockage partagé.")
-                var current = rootDir
-                for (part in rootDir.relativize(resolved)) {
-                    current = current.resolve(part)
-                    if (Files.isSymbolicLink(current)) throw IOException("Les liens symboliques ne sont pas accessibles.")
-                }
-                return resolved
-            }
-
-            override fun openFile(
-                subsystem: SftpSubsystemProxy,
-                fileHandle: FileHandle,
-                file: Path,
-                handle: String,
-                options: Set<out OpenOption>,
-                vararg attrs: FileAttribute<*>
-            ): SeekableByteChannel {
-                if (options.any { it != StandardOpenOption.READ }) {
-                    throw IOException("Serveur en lecture seule.")
-                }
-                return Files.newByteChannel(file, setOf(StandardOpenOption.READ), *attrs)
-            }
-
-            override fun createDirectory(subsystem: SftpSubsystemProxy, path: Path) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun removeFile(subsystem: SftpSubsystemProxy, path: Path, isDirectory: Boolean) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun renameFile(subsystem: SftpSubsystemProxy, oldPath: Path, newPath: Path, opts: java.util.Collection<java.nio.file.CopyOption>) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun copyFile(subsystem: SftpSubsystemProxy, src: Path, dst: Path, opts: java.util.Collection<java.nio.file.CopyOption>) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun createLink(subsystem: SftpSubsystemProxy, link: Path, existing: Path, symLink: Boolean) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun setFileAttribute(subsystem: SftpSubsystemProxy, file: Path, view: String, attribute: String, value: Any, vararg options: LinkOption) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun setFilePermissions(subsystem: SftpSubsystemProxy, file: Path, perms: Set<java.nio.file.attribute.PosixFilePermission>, vararg options: LinkOption) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun setFileAccessControl(subsystem: SftpSubsystemProxy, file: Path, acl: java.util.List<java.nio.file.attribute.AclEntry>, vararg options: LinkOption) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun setFileOwner(subsystem: SftpSubsystemProxy, file: Path, value: java.security.Principal, vararg options: LinkOption) {
-                throw IOException("Serveur en lecture seule.")
-            }
-
-            override fun setGroupOwner(subsystem: SftpSubsystemProxy, file: Path, value: java.nio.file.attribute.GroupPrincipal, vararg options: LinkOption) {
-                throw IOException("Serveur en lecture seule.")
-            }
-        }
+        val readOnlyAccessor = ReadOnlySftpFileSystemAccessor()
 
         val factory = SftpSubsystemFactory.Builder()
             .withFileSystemAccessor(readOnlyAccessor)
