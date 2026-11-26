@@ -4,7 +4,7 @@ Cette application Gradle est autonome et ne modifie pas l'application WebDAV exi
 
 ## Ouvrir et compiler
 
-Ouvrir le dossier `SftpServer` dans Android Studio, laisser Gradle synchroniser les dépendances, puis lancer la configuration `app` sur un téléphone Android 11 ou plus récent.
+Depuis la racine du dépôt, compiler avec `./gradlew -p SftpServer assembleDebug` (Windows : `gradlew.bat -p SftpServer assembleDebug`). Il est également possible d’ouvrir le dossier `SftpServer` dans Android Studio, laisser Gradle synchroniser les dépendances, puis lancer la configuration `app` sur un téléphone Android 11 ou plus récent.
 
 APK debug : `SftpServer/app/build/outputs/apk/debug/app-debug.apk`.
 
