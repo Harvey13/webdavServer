@@ -36,6 +36,7 @@ class SftpServerService : Service() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, notification("Initialisation du serveur SFTP…"))
         if (!starting && sshServer == null) {
+            getOrCreatePassword()
             starting = true
             thread(name = "SftpServerStart") {
                 try {
