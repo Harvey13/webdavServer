@@ -77,7 +77,9 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
         status.text = "Démarrage du serveur…"
         window.decorView.postDelayed({
-            status.text = "Serveur actif (si aucune erreur n’est affichée dans la notification)"
+            val running = getSharedPreferences(SftpServerService.PREFS, MODE_PRIVATE)
+                .getBoolean(SftpServerService.RUNNING_KEY, false)
+            status.text = if (running) "Serveur SFTP actif" else "Échec du démarrage : consultez la notification"
             refreshCredentials()
         }, 3000)
     }
