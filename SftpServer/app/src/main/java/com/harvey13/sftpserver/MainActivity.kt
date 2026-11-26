@@ -86,6 +86,7 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(SftpServerService.PREFS, MODE_PRIVATE)
         val password = prefs.getString(SftpServerService.PASSWORD_KEY, "") ?: ""
         val ip = SftpServerService.findLocalAddress()
-        credentials.text = "Adresse : $ip\nPort : 2222\nUtilisateur : backup\nMot de passe : $password\nDossier partagé : /"
+        val fingerprint = prefs.getString(SftpServerService.FINGERPRINT_KEY, "Empreinte disponible après démarrage") ?: ""
+        credentials.text = "Adresse : $ip\nPort : 2222\nUtilisateur : backup\nMot de passe : $password\nEmpreinte SSH SHA-256 (hex) :\n$fingerprint\nDossier partagé : /"
     }
 }
