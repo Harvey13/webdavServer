@@ -44,6 +44,10 @@ class MainActivity : Activity() {
         }
         layout.addView(credentials)
         layout.addView(Button(this).apply {
+            text = "Actualiser les informations"
+            setOnClickListener { refreshCredentials() }
+        })
+        layout.addView(Button(this).apply {
             text = "Démarrer le serveur SFTP"
             setOnClickListener { startSftp() }
         })
@@ -89,6 +93,8 @@ class MainActivity : Activity() {
         val password = prefs.getString(SftpServerService.PASSWORD_KEY, "") ?: ""
         val ip = SftpServerService.findLocalAddress()
         val fingerprint = prefs.getString(SftpServerService.FINGERPRINT_KEY, "Empreinte disponible après démarrage") ?: ""
+        val running = prefs.getBoolean(SftpServerService.RUNNING_KEY, false)
+        status.text = if (running) "Serveur SFTP actif" else "Serveur arrêté"
         credentials.text = "Adresse : $ip\nPort : 2222\nUtilisateur : backup\nMot de passe : $password\nEmpreinte SSH SHA-256 (hex) :\n$fingerprint\nDossier partagé : /"
     }
 }
