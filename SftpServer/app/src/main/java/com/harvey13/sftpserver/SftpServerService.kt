@@ -77,7 +77,7 @@ class SftpServerService : Service() {
         server.subsystemFactories = listOf(factory)
         sshServer = server
         server.start()
-        val publicKey = server.keyPairProvider.loadKeys().iterator().next().public
+        val publicKey = server.keyPairProvider.loadKeys(null).iterator().next().public
         val fingerprint = KeyUtils.getRawFingerprint(publicKey).joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(FINGERPRINT_KEY, fingerprint).apply()
     }
