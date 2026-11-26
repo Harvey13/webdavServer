@@ -11,6 +11,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory
 import org.apache.sshd.common.keyprovider.SimpleGeneratorHostKeyProvider
+import org.apache.sshd.common.config.keys.KeyUtils
 import org.apache.sshd.server.SshServer
 import org.apache.sshd.server.auth.password.PasswordAuthenticator
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
@@ -73,6 +74,9 @@ class SftpServerService : Service() {
             .build()
         server.subsystemFactories = listOf(factory)
         server.start()
+        val publicKey = server.keyPairProvider.loadKeys().iterator().next().public
+        val fingerprint = KeyUtils.getRawFingerprint(publicKey).joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(FINGERPRINT_KEY, fingerprint).apply()
         sshServer = server
     }
 
@@ -130,6 +134,7 @@ class SftpServerService : Service() {
         const val ACTION_STOP = "com.harvey13.sftpserver.STOP"
         const val PREFS = "sftp_server"
         const val PASSWORD_KEY = "password"
+        const val FINGERPRINT_KEY = "host_fingerprint"
         const val PORT = 2222
         const val USERNAME = "backup"
         private const val CHANNEL_ID = "sftp_server"
