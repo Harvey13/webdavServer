@@ -47,7 +47,7 @@ public final class ReadOnlySftpFileSystemAccessor implements SftpFileSystemAcces
         for (OpenOption option : options) {
             if (option != StandardOpenOption.READ && option != LinkOption.NOFOLLOW_LINKS) throw readOnly();
         }
-        return Files.newByteChannel(file, Set.of(StandardOpenOption.READ));
+        return Files.newByteChannel(file, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
     }
 
     @Override public void createDirectory(SftpSubsystemProxy subsystem, Path path) throws IOException { throw readOnly(); }
