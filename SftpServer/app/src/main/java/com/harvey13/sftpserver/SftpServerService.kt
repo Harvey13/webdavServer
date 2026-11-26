@@ -137,6 +137,10 @@ class SftpServerService : Service() {
                 throw IOException("Serveur en lecture seule.")
             }
 
+            override fun setFileAccessControl(subsystem: SftpSubsystemProxy, file: Path, acl: java.util.List<java.nio.file.attribute.AclEntry>, vararg options: LinkOption) {
+                throw IOException("Serveur en lecture seule.")
+            }
+
             override fun setFileOwner(subsystem: SftpSubsystemProxy, file: Path, value: java.security.Principal, vararg options: LinkOption) {
                 throw IOException("Serveur en lecture seule.")
             }
