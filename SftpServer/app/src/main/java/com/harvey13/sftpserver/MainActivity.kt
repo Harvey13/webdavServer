@@ -79,7 +79,7 @@ class MainActivity : Activity() {
         window.decorView.postDelayed({
             status.text = "Serveur actif (si aucune erreur n’est affichée dans la notification)"
             refreshCredentials()
-        }, 1200)
+        }, 3000)
     }
 
     private fun refreshCredentials() {
