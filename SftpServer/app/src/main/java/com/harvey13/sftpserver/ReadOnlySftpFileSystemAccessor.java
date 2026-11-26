@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.AclEntry;
 import java.nio.file.attribute.FileAttribute;
-import java.nio.file.attribute.GroupPrincipal;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.Principal;
 import java.util.Collection;
@@ -60,5 +59,5 @@ public final class ReadOnlySftpFileSystemAccessor implements SftpFileSystemAcces
     @Override public void setFilePermissions(SftpSubsystemProxy subsystem, Path file, Set<PosixFilePermission> perms, LinkOption... options) throws IOException { throw readOnly(); }
     @Override public void setFileAccessControl(SftpSubsystemProxy subsystem, Path file, List<AclEntry> acl, LinkOption... options) throws IOException { throw readOnly(); }
     @Override public void setFileOwner(SftpSubsystemProxy subsystem, Path file, Principal value, LinkOption... options) throws IOException { throw readOnly(); }
-    @Override public void setGroupOwner(SftpSubsystemProxy subsystem, Path file, GroupPrincipal value, LinkOption... options) throws IOException { throw readOnly(); }
+    @Override public void setGroupOwner(SftpSubsystemProxy subsystem, Path file, Principal value, LinkOption... options) throws IOException { throw readOnly(); }
 }
