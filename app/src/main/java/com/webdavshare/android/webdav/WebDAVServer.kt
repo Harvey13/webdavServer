@@ -171,8 +171,15 @@ class WebDAVServer(
      * Formate un chemin en href WebDAV valide
      */
     private fun formatHref(path: String, isDirectory: Boolean): String {
-        val formattedPath = if (path.startsWith("/")) path else "/$path"
-        return if (isDirectory && !formattedPath.endsWith("/")) "$formattedPath/" else formattedPath
+        val normalized = if (path.startsWith("/")) path else "/$path"
+        // Encode each segment independently so spaces, accents and # are valid
+        // in DAV href values without encoding the hierarchy separators.
+        val encoded = normalized.split("/").joinToString("/") { segment ->
+            java.net.URLEncoder.encode(segment, "UTF-8")
+                .replace("+", "%20")
+                .replace("%7E", "~")
+        }
+        return if (isDirectory && !encoded.endsWith("/")) "$encoded/" else encoded
     }
 
     /**
