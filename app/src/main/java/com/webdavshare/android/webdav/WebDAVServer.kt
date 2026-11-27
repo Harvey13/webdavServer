@@ -80,11 +80,17 @@ class WebDAVServer(
      * Gère la méthode PROPFIND pour lister les fichiers et dossiers
      */
     private fun handlePropFind(session: IHTTPSession, path: String): Response {
-        val depth = session.headers["depth"] ?: "infinity"
+        val depth = session.headers["depth"]?.trim() ?: "infinity"
+        if (depth != "0" && depth != "1" && depth != "infinity") {
+            return createResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "Profondeur WebDAV invalide")
+        }
         val targetFile = getFileFromPath(path)
 
         if (targetFile == null || !targetFile.exists()) {
             return createResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "Non trouvé")
+        }
+        if (!targetFile.canRead()) {
+            return createResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "Accès au dossier refusé")
         }
 
         val responseXml = StringBuilder()
@@ -97,7 +103,9 @@ class WebDAVServer(
         // Si depth est 1 ou infinity, ajouter les enfants
         if (depth == "1" || depth == "infinity") {
             if (targetFile.isDirectory) {
-                targetFile.listFiles()?.forEach { child ->
+                val children = targetFile.listFiles()
+                    ?: return createResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "Impossible de lire le contenu du dossier")
+                children.sortedWith(compareBy<File>({ !it.isDirectory }, { it.name.lowercase(Locale.ROOT) })).forEach { child ->
                     val childPath = if (path.endsWith("/")) "$path${child.name}" else "$path/${child.name}"
                     appendFileProperties(responseXml, child, childPath)
                 }
