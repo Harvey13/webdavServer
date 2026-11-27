@@ -10,6 +10,7 @@ import android.os.Environment
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory
+import org.apache.sshd.common.util.io.PathUtils
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider
 import org.apache.sshd.common.config.keys.KeyUtils
 import org.apache.sshd.server.SshServer
@@ -62,6 +63,11 @@ class SftpServerService : Service() {
         if (!Files.isDirectory(root)) throw IOException("Stockage partagé introuvable.")
         val password = getOrCreatePassword()
         val keyFile = java.io.File(filesDir, "sftp-hostkey.ser").toPath()
+
+        // Android does not define user.home; MINA SSHD needs an explicit home directory.
+        val appHome = filesDir.toPath().toAbsolutePath().normalize()
+        System.setProperty("user.home", appHome.toString())
+        PathUtils.setUserHomeFolderResolver { appHome }
 
         val server = SshServer.setUpDefaultServer()
         server.host = "0.0.0.0"
