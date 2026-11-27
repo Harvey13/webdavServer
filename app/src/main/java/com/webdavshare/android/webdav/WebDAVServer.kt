@@ -263,9 +263,19 @@ class WebDAVServer(
             val inputStream = FileInputStream(targetFile)
             val mimeType = getMimeType(targetFile) ?: "application/octet-stream"
             
-            val response = newChunkedResponse(Response.Status.OK, mimeType, inputStream)
-            response.addHeader("Content-Disposition", "inline; filename=\"${targetFile.name}\"")
-            response.addHeader("Content-Length", targetFile.length().toString())
+            // Fixed-length framing is more compatible with Windows WebDAV clients
+            // than combining a chunked body with a manually supplied Content-Length.
+            val response = newFixedLengthResponse(
+                Response.Status.OK,
+                mimeType,
+                inputStream,
+                targetFile.length()
+            )
+            response.addHeader(
+                "Content-Disposition",
+                "inline; filename*=UTF-8''" + java.net.URLEncoder.encode(targetFile.name, "UTF-8").replace("+", "%20")
+            )
+            response.addHeader("Accept-Ranges", "bytes")
             response.addHeader("DAV", "1, 2")
             response
         } catch (e: Exception) {
