@@ -10,7 +10,7 @@ import android.os.Environment
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory
-import org.apache.sshd.common.keyprovider.SimpleGeneratorHostKeyProvider
+import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider
 import org.apache.sshd.common.config.keys.KeyUtils
 import org.apache.sshd.server.SshServer
 import org.apache.sshd.server.auth.password.PasswordAuthenticator
