@@ -308,35 +308,53 @@ class WebDAVServer(
         if (targetFile == null) {
             return createResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "Chemin invalide")
         }
-        
+
         val parent = targetFile.parentFile
-        if (parent == null || (!parent.exists() && !parent.mkdirs())) {
+        if (parent == null || !parent.exists() || !parent.isDirectory) {
             return createResponse(Response.Status.CONFLICT, NanoHTTPD.MIME_PLAINTEXT, "Le dossier parent n'existe pas")
         }
-        
+        if (!parent.canWrite() || targetFile.isDirectory) {
+            return createResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "Écriture interdite")
+        }
+
         return try {
+            val existedBefore = targetFile.exists()
             val files = HashMap<String, String>()
             session.parseBody(files)
-            
+
             val contentFile = files["content"]
             if (!contentFile.isNullOrEmpty()) {
-                val tmpFile = File(contentFile)
-                if (tmpFile.exists()) {
-                    tmpFile.copyTo(targetFile, overwrite = true)
-                    tmpFile.delete()
-                } else {
-                    targetFile.createNewFile()
+                val uploadedFile = File(contentFile)
+                if (!uploadedFile.isFile) {
+                    return createResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "Contenu reçu invalide")
+                }
+                // Écrire dans un fichier temporaire du même dossier : un transfert
+                // interrompu ne doit pas laisser un fichier partiellement écrit.
+                val temporaryFile = File.createTempFile(".webdav-", ".upload", parent)
+                try {
+                    uploadedFile.inputStream().use { input ->
+                        temporaryFile.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    if (!temporaryFile.renameTo(targetFile)) {
+                        throw IOException("Impossible de finaliser le transfert")
+                    }
+                } finally {
+                    temporaryFile.delete()
+                    uploadedFile.delete()
                 }
             } else {
-                val postData = files["postData"]
-                if (!postData.isNullOrEmpty()) {
-                    targetFile.writeBytes(postData.toByteArray())
-                } else {
-                    targetFile.createNewFile()
+                // Un PUT vide est valide : il crée ou tronque le fichier.
+                targetFile.outputStream().use { output ->
+                    val postData = files["postData"]
+                    if (postData != null) output.write(postData.toByteArray(Charsets.UTF_8))
                 }
             }
-            
-            createResponse(Response.Status.CREATED, NanoHTTPD.MIME_PLAINTEXT, "Fichier créé avec succès")
+
+            createResponse(
+                if (existedBefore) Response.Status.OK else Response.Status.CREATED,
+                NanoHTTPD.MIME_PLAINTEXT,
+                "Transfert terminé"
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Erreur PUT", e)
             createResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "Erreur lors de l'upload: ${e.message}")
