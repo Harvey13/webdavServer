@@ -483,18 +483,32 @@ class WebDAVServer(
      * Obtient un File à partir d'un chemin (supporte /DavWWWRoot pour Windows)
      */
     private fun getFileFromPath(path: String): File? {
-        // Normaliser le chemin en supprimant le préfixe Windows DavWWWRoot si présent
-        var cleanPath = path.removePrefix("/")
-        if (cleanPath.startsWith("DavWWWRoot", ignoreCase = true)) {
-            cleanPath = cleanPath.substring("DavWWWRoot".length).removePrefix("/")
+        return try {
+            // Normalise le chemin et interdit toute sortie de la racine partagée,
+            // notamment les séquences ../ et les chemins absolus.
+            var cleanPath = path.replace('\\', '/').trimStart('/')
+            if (cleanPath.equals("DavWWWRoot", ignoreCase = true)) {
+                cleanPath = ""
+            } else if (cleanPath.startsWith("DavWWWRoot/", ignoreCase = true)) {
+                cleanPath = cleanPath.substring("DavWWWRoot/".length)
+            }
+
+            val rootDir = Environment.getExternalStorageDirectory().canonicalFile
+            val candidate = if (cleanPath.isEmpty()) rootDir else File(rootDir, cleanPath).canonicalFile
+            val rootPath = rootDir.path
+            if (candidate.path != rootPath && !candidate.path.startsWith(rootPath + File.separator)) {
+                Log.w(TAG, "Chemin WebDAV refusé hors de la racine: " + path)
+                null
+            } else {
+                candidate
+            }
+        } catch (e: IOException) {
+            Log.w(TAG, "Chemin WebDAV invalide: " + path, e)
+            null
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Accès WebDAV refusé: " + path, e)
+            null
         }
-        
-        val rootDir = Environment.getExternalStorageDirectory()
-        if (cleanPath.isEmpty()) {
-            return rootDir
-        }
-        
-        return File(rootDir, cleanPath)
     }
 
     /**
