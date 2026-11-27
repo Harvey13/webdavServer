@@ -1,44 +1,49 @@
 package com.webdavshare.android.utils
 
 import java.net.NetworkInterface
-import java.util.*
+import java.util.Collections
 
 /**
- * Utilitaires pour obtenir des informations réseau
+ * Utilitaires réseau.
  */
 object NetworkUtils {
-    
+
     /**
-     * Obtient l'adresse IP locale de l'appareil
-     *
-     * @return L'adresse IP locale ou "127.0.0.1" si non trouvée
+     * Renvoie une adresse IPv4 utilisable par un client du réseau local.
+     * Les interfaces Wi-Fi/Ethernet sont prioritaires afin d'éviter d'afficher
+     * l'adresse d'une interface mobile, VPN ou virtuelle.
      */
     fun getLocalIpAddress(): String {
-        try {
-            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
-            while (networkInterfaces.hasMoreElements()) {
-                val networkInterface = networkInterfaces.nextElement()
-                
-                // Filtrer les interfaces non actives
-                if (!networkInterface.isUp) continue
-                
-                // Ignorer les interfaces virtuelles et loopback
-                if (networkInterface.isLoopback || networkInterface.isVirtual) continue
-                
-                val addresses = networkInterface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val address = addresses.nextElement()
-                    
-                    // Ignorer les adresses IPv6 et les adresses de loopback
-                    if (address.isLoopbackAddress || address.hostAddress.contains(":")) continue
-                    
-                    return address.hostAddress
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        return try {
+            val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+                .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+
+            fun addresses(preferred: Boolean): List<String> =
+                interfaces
+                    .filter { networkInterface ->
+                        val name = networkInterface.name.lowercase()
+                        val isLan = name.startsWith("wlan") ||
+                            name.startsWith("wifi") ||
+                            name.startsWith("eth") ||
+                            name.startsWith("en")
+                        isLan == preferred
+                    }
+                    .flatMap { networkInterface ->
+                        Collections.list(networkInterface.inetAddresses)
+                            .filter { address ->
+                                address is java.net.Inet4Address &&
+                                    !address.isLoopbackAddress &&
+                                    !address.isLinkLocalAddress &&
+                                    address.isSiteLocalAddress
+                            }
+                            .map { it.hostAddress }
+                    }
+
+            addresses(true).firstOrNull()
+                ?: addresses(false).firstOrNull()
+                ?: "127.0.0.1"
+        } catch (_: Exception) {
+            "127.0.0.1"
         }
-        
-        return "127.0.0.1" // Adresse de repli si aucune adresse n'est trouvée
     }
 }
