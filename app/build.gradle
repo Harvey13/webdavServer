@@ -27,10 +27,10 @@ android {
         jvmTarget = '1.8'
     }
     buildFeatures {
-        viewBinding true
-        buildConfig true
+        viewBinding = true
+        buildConfig = true
     }
-    namespace 'com.webdavshare.android'
+    namespace = 'com.webdavshare.android'
     
     configurations {
         all {
