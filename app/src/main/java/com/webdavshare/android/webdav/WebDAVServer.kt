@@ -80,11 +80,17 @@ class WebDAVServer(
      * Gère la méthode PROPFIND pour lister les fichiers et dossiers
      */
     private fun handlePropFind(session: IHTTPSession, path: String): Response {
-        val depth = session.headers["depth"] ?: "infinity"
+        val depth = session.headers["depth"]?.trim() ?: "infinity"
+        if (depth != "0" && depth != "1" && depth != "infinity") {
+            return createResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "Profondeur WebDAV invalide")
+        }
         val targetFile = getFileFromPath(path)
 
         if (targetFile == null || !targetFile.exists()) {
             return createResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "Non trouvé")
+        }
+        if (!targetFile.canRead()) {
+            return createResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "Accès au dossier refusé")
         }
 
         val responseXml = StringBuilder()
@@ -97,7 +103,9 @@ class WebDAVServer(
         // Si depth est 1 ou infinity, ajouter les enfants
         if (depth == "1" || depth == "infinity") {
             if (targetFile.isDirectory) {
-                targetFile.listFiles()?.forEach { child ->
+                val children = targetFile.listFiles()
+                    ?: return createResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "Impossible de lire le contenu du dossier")
+                children.sortedWith(compareBy<File>({ !it.isDirectory }, { it.name.lowercase(Locale.ROOT) })).forEach { child ->
                     val childPath = if (path.endsWith("/")) "$path${child.name}" else "$path/${child.name}"
                     appendFileProperties(responseXml, child, childPath)
                 }
@@ -171,8 +179,15 @@ class WebDAVServer(
      * Formate un chemin en href WebDAV valide
      */
     private fun formatHref(path: String, isDirectory: Boolean): String {
-        val formattedPath = if (path.startsWith("/")) path else "/$path"
-        return if (isDirectory && !formattedPath.endsWith("/")) "$formattedPath/" else formattedPath
+        val normalized = if (path.startsWith("/")) path else "/$path"
+        // Encode each segment independently so spaces, accents and # are valid
+        // in DAV href values without encoding the hierarchy separators.
+        val encoded = normalized.split("/").joinToString("/") { segment ->
+            java.net.URLEncoder.encode(segment, "UTF-8")
+                .replace("+", "%20")
+                .replace("%7E", "~")
+        }
+        return if (isDirectory && !encoded.endsWith("/")) "$encoded/" else encoded
     }
 
     /**
@@ -248,9 +263,19 @@ class WebDAVServer(
             val inputStream = FileInputStream(targetFile)
             val mimeType = getMimeType(targetFile) ?: "application/octet-stream"
             
-            val response = newChunkedResponse(Response.Status.OK, mimeType, inputStream)
-            response.addHeader("Content-Disposition", "inline; filename=\"${targetFile.name}\"")
-            response.addHeader("Content-Length", targetFile.length().toString())
+            // Fixed-length framing is more compatible with Windows WebDAV clients
+            // than combining a chunked body with a manually supplied Content-Length.
+            val response = newFixedLengthResponse(
+                Response.Status.OK,
+                mimeType,
+                inputStream,
+                targetFile.length()
+            )
+            response.addHeader(
+                "Content-Disposition",
+                "inline; filename*=UTF-8''" + java.net.URLEncoder.encode(targetFile.name, "UTF-8").replace("+", "%20")
+            )
+            response.addHeader("Accept-Ranges", "bytes")
             response.addHeader("DAV", "1, 2")
             response
         } catch (e: Exception) {
@@ -283,35 +308,53 @@ class WebDAVServer(
         if (targetFile == null) {
             return createResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "Chemin invalide")
         }
-        
+
         val parent = targetFile.parentFile
-        if (parent == null || (!parent.exists() && !parent.mkdirs())) {
+        if (parent == null || !parent.exists() || !parent.isDirectory) {
             return createResponse(Response.Status.CONFLICT, NanoHTTPD.MIME_PLAINTEXT, "Le dossier parent n'existe pas")
         }
-        
+        if (!parent.canWrite() || targetFile.isDirectory) {
+            return createResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "Écriture interdite")
+        }
+
         return try {
+            val existedBefore = targetFile.exists()
             val files = HashMap<String, String>()
             session.parseBody(files)
-            
+
             val contentFile = files["content"]
             if (!contentFile.isNullOrEmpty()) {
-                val tmpFile = File(contentFile)
-                if (tmpFile.exists()) {
-                    tmpFile.copyTo(targetFile, overwrite = true)
-                    tmpFile.delete()
-                } else {
-                    targetFile.createNewFile()
+                val uploadedFile = File(contentFile)
+                if (!uploadedFile.isFile) {
+                    return createResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "Contenu reçu invalide")
+                }
+                // Écrire dans un fichier temporaire du même dossier : un transfert
+                // interrompu ne doit pas laisser un fichier partiellement écrit.
+                val temporaryFile = File.createTempFile(".webdav-", ".upload", parent)
+                try {
+                    uploadedFile.inputStream().use { input ->
+                        temporaryFile.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    if (!temporaryFile.renameTo(targetFile)) {
+                        throw IOException("Impossible de finaliser le transfert")
+                    }
+                } finally {
+                    temporaryFile.delete()
+                    uploadedFile.delete()
                 }
             } else {
-                val postData = files["postData"]
-                if (!postData.isNullOrEmpty()) {
-                    targetFile.writeBytes(postData.toByteArray())
-                } else {
-                    targetFile.createNewFile()
+                // Un PUT vide est valide : il crée ou tronque le fichier.
+                targetFile.outputStream().use { output ->
+                    val postData = files["postData"]
+                    if (postData != null) output.write(postData.toByteArray(Charsets.UTF_8))
                 }
             }
-            
-            createResponse(Response.Status.CREATED, NanoHTTPD.MIME_PLAINTEXT, "Fichier créé avec succès")
+
+            createResponse(
+                if (existedBefore) Response.Status.OK else Response.Status.CREATED,
+                NanoHTTPD.MIME_PLAINTEXT,
+                "Transfert terminé"
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Erreur PUT", e)
             createResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "Erreur lors de l'upload: ${e.message}")
@@ -483,18 +526,32 @@ class WebDAVServer(
      * Obtient un File à partir d'un chemin (supporte /DavWWWRoot pour Windows)
      */
     private fun getFileFromPath(path: String): File? {
-        // Normaliser le chemin en supprimant le préfixe Windows DavWWWRoot si présent
-        var cleanPath = path.removePrefix("/")
-        if (cleanPath.startsWith("DavWWWRoot", ignoreCase = true)) {
-            cleanPath = cleanPath.substring("DavWWWRoot".length).removePrefix("/")
+        return try {
+            // Normalise le chemin et interdit toute sortie de la racine partagée,
+            // notamment les séquences ../ et les chemins absolus.
+            var cleanPath = path.replace('\\', '/').trimStart('/')
+            if (cleanPath.equals("DavWWWRoot", ignoreCase = true)) {
+                cleanPath = ""
+            } else if (cleanPath.startsWith("DavWWWRoot/", ignoreCase = true)) {
+                cleanPath = cleanPath.substring("DavWWWRoot/".length)
+            }
+
+            val rootDir = Environment.getExternalStorageDirectory().canonicalFile
+            val candidate = if (cleanPath.isEmpty()) rootDir else File(rootDir, cleanPath).canonicalFile
+            val rootPath = rootDir.path
+            if (candidate.path != rootPath && !candidate.path.startsWith(rootPath + File.separator)) {
+                Log.w(TAG, "Chemin WebDAV refusé hors de la racine: " + path)
+                null
+            } else {
+                candidate
+            }
+        } catch (e: IOException) {
+            Log.w(TAG, "Chemin WebDAV invalide: " + path, e)
+            null
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Accès WebDAV refusé: " + path, e)
+            null
         }
-        
-        val rootDir = Environment.getExternalStorageDirectory()
-        if (cleanPath.isEmpty()) {
-            return rootDir
-        }
-        
-        return File(rootDir, cleanPath)
     }
 
     /**

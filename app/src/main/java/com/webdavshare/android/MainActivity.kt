@@ -64,6 +64,15 @@ class MainActivity : AppCompatActivity() {
         binding.sharedFolderTextView.text = getString(R.string.shared_folder, "Stockage complet du téléphone")
     }
 
+    private fun hasStoragePermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
     private fun checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Android 11+: Demander MANAGE_EXTERNAL_STORAGE
@@ -88,6 +97,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startWebDAVServer() {
+        if (!hasStoragePermission()) {
+            showToast("Autorise l'accès aux fichiers avant de démarrer le serveur")
+            checkPermissions()
+            return
+        }
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val ipAddress = NetworkUtils.getLocalIpAddress()
